@@ -204,10 +204,10 @@ public final class AccessibilityHierarchyParser {
                     let userInputLabels = element.object.accessibilityUserInputLabels,
                     !userInputLabels.isEmpty
                 else {
-                    return nil
+                    return ["Traits->", element.object.accessibilityTraits.debugDescription]
                 }
 
-                return userInputLabels
+                return ["UserInputLabels ->"] + userInputLabels
             }()
 
             let activationPoint = element.object.accessibilityActivationPoint
@@ -299,18 +299,14 @@ public final class AccessibilityHierarchyParser {
         @unknown default:
             fatalError("Unknown user interface layout direction: \(userInterfaceLayoutDirection)")
         }
-        
-        // 8 seems to be the magic number for VoiceOver to consider it
-        // to be vertically "above" other views.
-        let minimumVerticalSeparation = 8.0
 
         let sortedNodes = explicitlyOrdered ? nodes : nodes
-            .map { ($0, accessibilitySortFrame(for: $0, in: root)) }
+            .map { ($0, accessibilityBoundingBox(for: $0, in: root)) }
             .sorted { obj1, obj2 in
                 let origin1 = obj1.1.origin
                 let origin2 = obj2.1.origin
 
-                if origin1.y != origin2.y, abs(origin1.y - origin2.y) >= minimumVerticalSeparation {
+                if origin1.y != origin2.y {
                     return origin1.y < origin2.y
                 }
 
@@ -339,27 +335,28 @@ public final class AccessibilityHierarchyParser {
 
         return sortedElements
     }
-    /// Returns a CGRect that can be used for sorting by position.
-    private func accessibilitySortFrame(for node: AccessibilityNode, in root: UIView) -> CGRect {
+
+    /// Returns the bounding box of the accessibility node in the root view's coordinate space.
+    private func accessibilityBoundingBox(for node: AccessibilityNode, in root: UIView) -> CGRect {
         switch node {
         case let .element(frameProvider, _),
              let .group(_, _, frameProvider?):
-            switch accessibilityShape(for: frameProvider, in: root, preferPath: false) {
+            switch accessibilityShape(for: frameProvider, in: root) {
             case let .frame(rect):
                 return rect
-            default:
-                return frameProvider.accessibilityFrame
+
+            case let .path(path):
+                return path.bounds
             }
 
         case let .group(elements, _, _):
-            return elements.reduce(CGRect.null) { $0.union(accessibilitySortFrame(for: $1, in: root)) }
+            return elements.reduce(CGRect.null) { $0.union(accessibilityBoundingBox(for: $1, in: root)) }
         }
     }
 
     /// Returns the shape of the accessibility element in the root view's coordinate space.
-    /// Voiceover prefers an accessibilityPath if available when drawing the bounding box, but the accessibilityFrame is always used for sort order.
-    private func accessibilityShape(for element: NSObject, in root: UIView, preferPath: Bool = true) -> AccessibilityMarker.Shape {
-        if let accessibilityPath = element.accessibilityPath, preferPath {
+    private func accessibilityShape(for element: NSObject, in root: UIView) -> AccessibilityMarker.Shape {
+        if let accessibilityPath = element.accessibilityPath {
             return .path(root.convert(accessibilityPath, from: nil))
 
         } else if let element = element as? UIAccessibilityElement, let container = element.accessibilityContainer, !element.accessibilityFrameInContainerSpace.isNull {
@@ -813,5 +810,33 @@ private extension CGPoint {
 
     func approximatelyEquals(_ other: CGPoint, tolerance: CGFloat) -> Bool {
         return abs(self.x - other.x) < tolerance && abs(self.y - other.y) < tolerance
+    }
+}
+
+
+extension UIAccessibilityTraits: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        let traits = [
+            (UIAccessibilityTraits.adjustable, ".adjustable"),
+            (.allowsDirectInteraction, ".allowsDirectInteraction"),
+            (.button, ".button"),
+            (.causesPageTurn, ".causesPageTurn"),
+            (.header, ".header"),
+            (.image, ".image"),
+            (.keyboardKey, ".keyboardKey"),
+            (.link, ".link"),
+            (.notEnabled, ".notEnabled"),
+            (.playsSound, ".playsSound"),
+            (.searchField, ".searchField"),
+            (.selected, ".selected"),
+            (.startsMediaSession, ".startsMediaSession"),
+            (.staticText, ".staticText"),
+            (.summaryElement, ".summaryElement"),
+            (.tabBar, ".tabBar"),
+            (.updatesFrequently, ".updatesFrequently")
+            ]
+            .filter { self.contains($0.0) }
+            .map { $0.1 }
+        return traits.isEmpty ? ".none" : traits.joined(separator: ", ")
     }
 }
