@@ -197,8 +197,8 @@ public final class AccessibilitySnapshotView: SnapshotAndLegendView {
                 }
 
                 let activationPointView = UIImageView(
-                    image: UIImage(named: "Crosshairs", in: Bundle.accessibilitySnapshotResources, compatibleWith: nil)
-                )
+                    image: UIImage()
+                ui)
                 activationPointView.bounds.size = .init(width: 16, height: 16)
                 activationPointView.center = marker.activationPoint
                 activationPointView.tintColor = color
