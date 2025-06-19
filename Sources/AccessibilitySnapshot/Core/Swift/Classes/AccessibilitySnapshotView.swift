@@ -196,9 +196,7 @@ public final class AccessibilitySnapshotView: SnapshotAndLegendView {
                     break
                 }
 
-                let activationPointView = UIImageView(
-                    image: UIImage()
-                ui)
+                let activationPointView = UIImageView(image: UIImage())
                 activationPointView.bounds.size = .init(width: 16, height: 16)
                 activationPointView.center = marker.activationPoint
                 activationPointView.tintColor = color
